@@ -181,29 +181,3 @@ The server log shows, for every message: the encrypted bytes on the wire, the de
 | MITM protection | Signature over transcript that contains both ephemeral public keys |
 | Downgrade protection | Cipher-suite lists are part of the signed/MAC'd transcript |
 
-## 8. Differences from real TLS 1.3 (be honest in your report)
-
-* Handshake messages are **JSON**, not binary structures.
-* Post-ServerHello handshake messages (certificates, etc.) are sent in **plaintext** so you can see them; real TLS 1.3 encrypts them (this hides the client's identity from eavesdroppers).
-* Simplified key schedule (one HKDF stage instead of the full early/handshake/application secret chain), no key updates, no session resumption, no revocation checking (CRL/OCSP), no certificate chains/intermediates.
-* Not audited or side-channel hardened.
-* The **server relays** chat, so it can read messages: this is *transport* security (client↔server), not true end-to-end encryption between users. True E2EE would need per-user keys (e.g. Signal-style) — a good "future work" item.
-
-## 9. Suggested demo script for your presentation
-
-1. Run `gen_certs.py`, show `certs/`; open a `.crt` with `openssl x509 -in certs/alice.crt -text -noout`.
-2. Start the server in a wide terminal; connect `bob`, then `alice`.
-3. Walk through the **client** log (steps 1–9) and point at the matching **server** log — highlight that the *ECDHE shared secret and all keys are identical on both sides* though never transmitted.
-4. Send a message from alice; show the server's *encrypted record → plaintext → re-encrypted per recipient* output.
-5. Run the attacks (`mallory`, `olduser`, `--server-name evil.com`) and show the `✘` lines.
-6. (Optional) Run `sudo tcpdump -i lo -A port 5555` or Wireshark on loopback to show the handshake JSON in plaintext but chat as random bytes.
-
-## 10. Likely viva questions
-
-* *Why sign the transcript hash instead of just sending the certificate?* A certificate is public; the signature proves possession of the private key and binds the session.
-* *Why ephemeral keys if we already have RSA certs?* Forward secrecy: leaking the RSA key later can't decrypt past sessions.
-* *What if an attacker replays a captured ClientHello / records?* Fresh server randomness/ephemeral key changes all keys; record sequence numbers reject replays.
-* *Why does `mallory` fail even though its issuer name matches?* Names are just text; only the CA's *signature* is unforgeable.
-* *Why separate keys per direction?* Prevents reflection attacks.
-* *Why Finished if signatures already exist?* It proves key agreement (both derived the same keys) and covers the *entire* transcript including the cipher-suite negotiation.
-* *Can the server read chat?* Yes — it's client↔server encryption, not user↔user E2EE.
